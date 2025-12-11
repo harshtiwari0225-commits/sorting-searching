@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Algorithm Visualizer</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        code, pre { font-family: 'JetBrains Mono', monospace !important; }
+        
+        .bar {
+            transition: background-color 0.2s ease;
+            border-radius: 4px 4px 0 0;
+        }
+        
+        .bar.comparing { background: linear-gradient(to top, #f59e0b, #fbbf24) !important; }
+        .bar.swapping { background: linear-gradient(to top, #ef4444, #f87171) !important; }
+        .bar.sorted { background: linear-gradient(to top, #10b981, #34d399) !important; }
+        .bar.searching { background: linear-gradient(to top, #8b5cf6, #a78bfa) !important; }
+        .bar.found { background: linear-gradient(to top, #06b6d4, #22d3ee) !important; }
+        .bar.pivot { background: linear-gradient(to top, #ec4899, #f472b6) !important; }
+        
+        .code-line.active {
+            background: rgba(59, 130, 246, 0.3);
+            border-left: 3px solid #3b82f6;
+            margin-left: -3px;
+        }
+        
+        .glow-button {
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+            transition: all 0.3s ease;
+        }
+        .glow-button:hover {
+            box-shadow: 0 0 30px rgba(59, 130, 246, 0.6);
+            transform: translateY(-2px);
+        }
+        
+        .glass-panel {
+            background: rgba(17, 24, 39, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            border-radius: 50%;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .floating { animation: float 3s ease-in-out infinite; }
+    </style>
+</head>
+<body class="bg-gray-950 text-white min-h-screen overflow-x-hidden">
+    <!-- Background Effects -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none">
+        <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
+        <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl"></div>
+    </div>
+
+    <div class="relative z-10">
+        <!-- Header -->
+        <header class="glass-panel border-b border-gray-800 sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center floating">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Algorithm Visualizer</h1>
+                            <p class="text-xs text-gray-400">Interactive Sorting & Searching</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Algorithm Type Toggle -->
+                    <div class="flex items-center gap-2 bg-gray-800/50 rounded-full p-1">
+                        <button id="sortingTab" class="px-4 py-2 rounded-full text-sm font-medium transition-all bg-blue-600 text-white">
+                            Sorting
+                        </button>
+                        <button id="searchingTab" class="px-4 py-2 rounded-full text-sm font-medium transition-all text-gray-400 hover:text-white">
+                            Searching
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto px-6 py-8">
+            <!-- Controls Panel -->
+            <div class="glass-panel rounded-2xl p-6 mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <!-- Algorithm Selector -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Algorithm</label>
+                        <select id="algorithmSelect" class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                            <option value="bubble">Bubble Sort</option>
+                            <option value="selection">Selection Sort</option>
+                            <option value="insertion">Insertion Sort</option>
+                            <option value="merge">Merge Sort</option>
+                            <option value="quick">Quick Sort</option>
+                            <option value="heap">Heap Sort</option>
+                        </select>
+                    </div>
+
+                    <!-- Array Size -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Array Size: <span id="sizeValue">30</span></label>
+                        <input type="range" id="sizeSlider" min="10" max="100" value="30" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                    </div>
+
+                    <!-- Speed Control -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Speed: <span id="speedValue">Medium</span></label>
+                        <input type="range" id="speedSlider" min="1" max="5" value="3" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-500">
+                    </div>
+
+                    <!-- Search Target (Hidden by default) -->
+                    <div id="searchTargetContainer" class="hidden">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Search Target</label>
+                        <input type="number" id="searchTarget" class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter value...">
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex items-end gap-3">
+                        <button id="generateBtn" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                            New
+                        </button>
+                        <button id="startBtn" class="flex-1 glow-button bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white px-4 py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2">
+                            <svg id="playIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span id="startBtnText">Start</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Visualization Panel -->
+                <div class="lg:col-span-2">
+                    <div class="glass-panel rounded-2xl p-6 h-full">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-lg font-semibold text-white">Visualization</h2>
+                            <div class="flex items-center gap-4 text-sm">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-3 h-3 rounded bg-gradient-to-t from-amber-500 to-amber-400"></div>
+                                    <span class="text-gray-400">Comparing</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-3 h-3 rounded bg-gradient-to-t from-red-500 to-red-400"></div>
+                                    <span class="text-gray-400">Swapping</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-3 h-3 rounded bg-gradient-to-t from-emerald-500 to-emerald-400"></div>
+                                    <span class="text-gray-400">Sorted</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Bars Container -->
+                        <div id="barsContainer" class="flex items-end justify-center gap-1 h-80 bg-gray-900/50 rounded-xl p-4">
+                            <!-- Bars will be generated here -->
+                        </div>
+
+                        <!-- Stats -->
+                        <div class="grid grid-cols-3 gap-4 mt-6">
+                            <div class="bg-gray-800/50 rounded-xl p-4 text-center">
+                                <p class="text-2xl font-bold text-blue-400" id="comparisons">0</p>
+                                <p class="text-sm text-gray-400">Comparisons</p>
+                            </div>
+                            <div class="bg-gray-800/50 rounded-xl p-4 text-center">
+                                <p class="text-2xl font-bold text-purple-400" id="swaps">0</p>
+                                <p class="text-sm text-gray-400">Swaps</p>
+                            </div>
+                            <div class="bg-gray-800/50 rounded-xl p-4 text-center">
+                                <p class="text-2xl font-bold text-emerald-400" id="timeElapsed">0ms</p>
+                                <p class="text-sm text-gray-400">Time</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Code Panel -->
+                <div class="lg:col-span-1">
+                    <div class="glass-panel rounded-2xl p-6 h-full flex flex-col">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-lg font-semibold text-white">Algorithm Code</h2>
+                            <div class="flex items-center gap-2">
+                                <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                                <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                                <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                            </div>
+                        </div>
+                        
+                        <div id="codeContainer" class="flex-1 overflow-auto bg-gray-900 rounded-xl p-4 text-sm">
+                            <pre class="!bg-transparent !m-0 !p-0"><code id="codeBlock" class="language-javascript"></code></pre>
+                        </div>
+
+                        <!-- Algorithm Info -->
+                        <div class="mt-4 p-4 bg-gray-800/50 rounded-xl">
+                            <h3 class="font-semibold text-white mb-2" id="algorithmName">Bubble Sort</h3>
+                            <div class="grid grid-cols-2 gap-2 text-sm">
+                                <div>
+                                    <span class="text-gray-400">Time:</span>
+                                    <span class="text-blue-400 ml-1" id="timeComplexity">O(n²)</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-400">Space:</span>
+                                    <span class="text-purple-400 ml-1" id="spaceComplexity">O(1)</span>
+                                </div>
+                            </div>
+                            <p class="text-gray-400 text-sm mt-2" id="algorithmDesc">Repeatedly swaps adjacent elements if they are in the wrong order.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Algorithm Visualizer
+        class AlgorithmVisualizer {
+            constructor() {
+                this.array = [];
+                this.bars = [];
+                this.isRunning = false;
+                this.isPaused = false;
+                this.comparisons = 0;
+                this.swaps = 0;
+                this.startTime = 0;
+                this.speed = 50;
+                this.currentAlgorithm = 'bubble';
+                this.mode = 'sorting';
+                
+                this.initElements();
+                this.initEventListeners();
+                this.generateArray();
+                this.updateCode();
+            }
+
+            initElements() {
+                this.barsContainer = document.getElementById('barsContainer');
+                this.algorithmSelect = document.getElementById('algorithmSelect');
+                this.sizeSlider = document.getElementById('sizeSlider');
+                this.speedSlider = document.getElementById('speedSlider');
+                this.startBtn = document.getElementById('startBtn');
+                this.generateBtn = document.getElementById('generateBtn');
+                this.codeBlock = document.getElementById('codeBlock');
+                this.sortingTab = document.getElementById('sortingTab');
+                this.searchingTab = document.getElementById('searchingTab');
+                this.searchTargetContainer = document.getElementById('searchTargetContainer');
+            }
+
+            initEventListeners() {
+                this.algorithmSelect.addEventListener('change', () => {
+                    this.currentAlgorithm = this.algorithmSelect.value;
+                    this.updateCode();
+                });
+
+                this.sizeSlider.addEventListener('input', (e) => {
+                    document.getElementById('sizeValue').textContent = e.target.value;
+                    if (!this.isRunning) this.generateArray();
+                });
+
+                this.speedSlider.addEventListener('input', (e) => {
+                    const speeds = ['Very Slow', 'Slow', 'Medium', 'Fast', 'Very Fast'];
+                    document.getElementById('speedValue').textContent = speeds[e.target.value - 1];
+                    this.speed = [200, 100, 50, 20, 5][e.target.value - 1];
+                });
+
+                this.startBtn.addEventListener('click', () => this.toggleRun());
+                this.generateBtn.addEventListener('click', () => {
+                    if (!this.isRunning) this.generateArray();
+                });
+
+                this.sortingTab.addEventListener('click', () => this.switchMode('sorting'));
+                this.searchingTab.addEventListener('click', () => this.switchMode('searching'));
+            }
+
+            switchMode(mode) {
+                this.mode = mode;
+                if (mode === 'sorting') {
+                    this.sortingTab.classList.add('bg-blue-600', 'text-white');
+                    this.sortingTab.classList.remove('text-gray-400');
+                    this.searchingTab.classList.remove('bg-blue-600', 'text-white');
+                    this.searchingTab.classList.add('text-gray-400');
+                    this.searchTargetContainer.classList.add('hidden');
+                    this.algorithmSelect.innerHTML = `
+                        <option value="bubble">Bubble Sort</option>
+                        <option value="selection">Selection Sort</option>
+                        <option value="insertion">Insertion Sort</option>
+                        <option value="merge">Merge Sort</option>
+                        <option value="quick">Quick Sort</option>
+                        <option value="heap">Heap Sort</option>
+                    `;
+                } else {
+                    this.searchingTab.classList.add('bg-blue-600', 'text-white');
+                    this.searchingTab.classList.remove('text-gray-400');
+                    this.sortingTab.classList.remove('bg-blue-600', 'text-white');
+                    this.sortingTab.classList.add('text-gray-400');
+                    this.searchTargetContainer.classList.remove('hidden');
+                    this.algorithmSelect.innerHTML = `
+                        <option value="linear">Linear Search</option>
+                        <option value="binary">Binary Search</option>
+                        <option value="jump">Jump Search</option>
+                    `;
+                }
+                this.currentAlgorithm = this.algorithmSelect.value;
+                this.generateArray();
+                this.updateCode();
+            }
+
+            generateArray() {
+                const size = parseInt(this.sizeSlider.value);
+                this.array = [];
+                for (let i = 0; i < size; i++) {
+                    this.array.push(Math.floor(Math.random() * 280) + 20);
+                }
+                
+                if (this.mode === 'searching' && this.currentAlgorithm === 'binary') {
+                    this.array.sort((a, b) => a - b);
+                }
+                
+                this.renderBars();
+                this.resetStats();
+            }
+
+            renderBars() {
+                this.barsContainer.innerHTML = '';
+                const barWidth = Math.max(2, Math.floor(800 / this.array.length) - 2);
+                
+                this.array.forEach((value, index) => {
+                    const bar = document.createElement('div');
+                    bar.className = 'bar';
+                    bar.style.width = `${barWidth}px`;
+                    bar.style.height = `${value}px`;
+                    bar.style.background = 'linear-gradient(to top, #3b82f6, #60a5fa)';
+                    bar.dataset.index = index;
+                    this.barsContainer.appendChild(bar);
+                });
+                
+                this.bars = document.querySelectorAll('.bar');
+            }
+
+            resetStats() {
+                this.comparisons = 0;
+                this.swaps = 0;
+                document.getElementById('comparisons').textContent = '0';
+                document.getElementById('swaps').textContent = '0';
+                document.getElementById('timeElapsed').textContent = '0ms';
+            }
+
+            updateStats() {
+                document.getElementById('comparisons').textContent = this.comparisons;
+                document.getElementById('swaps').textContent = this.swaps;
+                document.getElementById('timeElapsed').textContent = `${Date.now() - this.startTime}ms`;
+            }
+
+            async toggleRun() {
+                if (this.isRunning) {
+                    this.isRunning = false;
+                    document.getElementById('startBtnText').textContent = 'Start';
+                    return;
+                }
+
+                this.isRunning = true;
+                document.getElementById('startBtnText').textContent = 'Stop';
+                this.startTime = Date.now();
+
+                if (this.mode === 'sorting') {
+                    await this.runSortingAlgorithm();
+                } else {
+                    await this.runSearchingAlgorithm();
+                }
+
+                this.isRunning = false;
+                document.getElementById('startBtnText').textContent = 'Start';
+            }
+
+            async runSortingAlgorithm() {
+                switch (this.currentAlgorithm) {
+                    case 'bubble': await this.bubbleSort(); break;
+                    case 'selection': await this.selectionSort(); break;
+                    case 'insertion': await this.insertionSort(); break;
+                    case 'merge': await this.mergeSort(0, this.array.length - 1); break;
+                    case 'quick': await this.quickSort(0, this.array.length - 1); break;
+                    case 'heap': await this.heapSort(); break;
+                }
+                if (this.isRunning) await this.markAllSorted();
+            }
+
+            async runSearchingAlgorithm() {
+                const target = parseInt(document.getElementById('searchTarget').value);
+                if (isNaN(target)) {
+                    alert('Please enter a search target!');
+                    return;
+                }
+                
+                switch (this.currentAlgorithm) {
+                    case 'linear': await this.linearSearch(target); break;
+                    case 'binary': await this.binarySearch(target); break;
+                    case 'jump': await this.jumpSearch(target); break;
+                }
+            }
+
+            async delay() {
+                return new Promise(resolve => setTimeout(resolve, this.speed));
+            }
+
+            async swap(i, j) {
+                [this.array[i], this.array[j]] = [this.array[j], this.array[i]];
+                
+                const bar1 = this.bars[i];
+                const bar2 = this.bars[j];
+                
+                bar1.classList.add('swapping');
+                bar2.classList.add('swapping');
+                
+                anime({
+                    targets: bar1,
+                    height: this.array[i],
+                    duration: this.speed,
+                    easing: 'easeOutQuad'
+                });
+                
+                anime({
+                    targets: bar2,
+                    height: this.array[j],
+                    duration: this.speed,
+                    easing: 'easeOutQuad'
+                });
+                
+                this.swaps++;
+                this.updateStats();
+                await this.delay();
+                
+                bar1.classList.remove('swapping');
+                bar2.classList.remove('swapping');
+            }
+
+            async compare(i, j) {
+                this.bars[i].classList.add('comparing');
+                this.bars[j].classList.add('comparing');
+                this.comparisons++;
+                this.updateStats();
+                await this.delay();
+                this.bars[i].classList.remove('comparing');
+                this.bars[j].classList.remove('comparing');
+            }
+
+            async markSorted(i) {
+                this.bars[i].classList.add('sorted');
+                anime({
+                    targets: this.bars[i],
+                    scale: [1.1, 1],
+                    duration: 200,
+                    easing: 'easeOutElastic(1, .5)'
+                });
+            }
+
+            async markAllSorted() {
+                for (let i = 0; i < this.bars.length; i++) {
+                    if (!this.isRunning) return;
+                    this.bars[i].classList.add('sorted');
+                    anime({
+                        targets: this.bars[i],
+                        scale: [1.2, 1],
+                        duration: 300,
+                        easing: 'easeOutElastic(1, .5)'
+                    });
+                    await new Promise(r => setTimeout(r, 20));
+                }
+            }
+
+            // Sorting Algorithms
+            async bubbleSort() {
+                for (let i = 0; i < this.array.length - 1; i++) {
+                    for (let j = 0; j < this.array.length - i - 1; j++) {
+                        if (!this.isRunning) return;
+                        await this.compare(j, j + 1);
+                        if (this.array[j] > this.array[j + 1]) {
+                            await this.swap(j, j + 1);
+                        }
+                    }
+                    await this.markSorted(this.array.length - 1 - i);
+                }
+            }
+
+            async selectionSort() {
+                for (let i = 0; i < this.array.length - 1; i++) {
+                    let minIdx = i;
+                    for (let j = i + 1; j < this.array.length; j++) {
+                        if (!this.isRunning) return;
+                        await this.compare(minIdx, j);
+                        if (this.array[j] < this.array[minIdx]) {
+                            minIdx = j;
+                        }
+                    }
+                    if (minIdx !== i) {
+                        await this.swap(i, minIdx);
+                    }
+                    await this.markSorted(i);
+                }
+            }
+
+            async insertionSort() {
+                for (let i = 1; i < this.array.length; i++) {
+                    let j = i;
+                    while (j > 0 && this.array[j - 1] > this.array[j]) {
+                        if (!this.isRunning) return;
+                        await this.compare(j - 1, j);
+                        await this.swap(j - 1, j);
+                        j--;
+                    }
+                }
+            }
+
+            async mergeSort(left, right) {
+                if (left >= right || !this.isRunning) return;
+                
+                const mid = Math.floor((left + right) / 2);
+                await this.mergeSort(left, mid);
+                await this.mergeSort(mid + 1, right);
+                await this.merge(left, mid, right);
+            }
+
+            async merge(left, mid, right) {
+                const leftArr = this.array.slice(left, mid + 1);
+                const rightArr = this.array.slice(mid + 1, right + 1);
+                
+                let i = 0, j = 0, k = left;
+                
+                while (i < leftArr.length && j < rightArr.length) {
+                    if (!this.isRunning) return;
+                    this.comparisons++;
+                    this.updateStats();
+                    
+                    if (leftArr[i] <= rightArr[j]) {
+                        this.array[k] = leftArr[i];
+                        i++;
+                    } else {
+                        this.array[k] = rightArr[j];
+                        j++;
+                    }
+                    
+                    this.bars[k].style.height = `${this.array[k]}px`;
+                    this.bars[k].classList.add('comparing');
+                    await this.delay();
+                    this.bars[k].classList.remove('comparing');
+                    k++;
+                }
+                
+                while (i < leftArr.length) {
+                    if (!this.isRunning) return;
+                    this.array[k] = leftArr[i];
+                    this.bars[k].style.height = `${this.array[k]}px`;
+                    i++; k++;
+                    await this.delay();
+                }
+                
+                while (j < rightArr.length) {
+                    if (!this.isRunning) return;
+                    this.array[k] = rightArr[j];
+                    this.bars[k].style.height = `${this.array[k]}px`;
+                    j++; k++;
+                    await this.delay();
+                }
+            }
+
+            async quickSort(low, high) {
+                if (low < high && this.isRunning) {
+                    const pi = await this.partition(low, high);
+                    await this.quickSort(low, pi - 1);
+                    await this.quickSort(pi + 1, high);
+                }
+            }
+
+            async partition(low, high) {
+                const pivot = this.array[high];
+                this.bars[high].classList.add('pivot');
+                
+                let i = low - 1;
+                
+                for (let j = low; j < high; j++) {
+                    if (!this.isRunning) return;
+                    await this.compare(j, high);
+                    
+                    if (this.array[j] < pivot) {
+                        i++;
+                        await this.swap(i, j);
+                    }
+                }
+                
+                await this.swap(i + 1, high);
+                this.bars[high].classList.remove('pivot');
+                await this.markSorted(i + 1);
+                
+                return i + 1;
+            }
+
+            async heapSort() {
+                const n = this.array.length;
+                
+                for (let i = Math.floor(n / 2) - 1; i >= 0; i--) {
+                    await this.heapify(n, i);
+                }
+                
+                for (let i = n - 1; i > 0; i--) {
+                    if (!this.isRunning) return;
+                    await this.swap(0, i);
+                    await this.markSorted(i);
+                    await this.heapify(i, 0);
+                }
+            }
+
+            async heapify(n, i) {
+                let largest = i;
+                const left = 2 * i + 1;
+                const right = 2 * i + 2;
+                
+                if (left < n) {
+                    await this.compare(left, largest);
+                    if (this.array[left] > this.array[largest]) {
+                        largest = left;
+                    }
+                }
+                
+                if (right < n) {
+                    await this.compare(right, largest);
+                    if (this.array[right] > this.array[largest]) {
+                        largest = right;
+                    }
+                }
+                
+                if (largest !== i) {
+                    await this.swap(i, largest);
+                    await this.heapify(n, largest);
+                }
+            }
+
+            // Searching Algorithms
+            async linearSearch(target) {
+                for (let i = 0; i < this.array.length; i++) {
+                    if (!this.isRunning) return;
+                    this.bars[i].classList.add('searching');
+                    this.comparisons++;
+                    this.updateStats();
+                    await this.delay();
+                    
+                    if (this.array[i] === target) {
+                        this.bars[i].classList.remove('searching');
+                        this.bars[i].classList.add('found');
+                        anime({
+                            targets: this.bars[i],
+                            scale: [1.3, 1],
+                            duration: 500,
+                            easing: 'easeOutElastic(1, .3)'
+                        });
+                        return;
+                    }
+                    this.bars[i].classList.remove('searching');
+                }
+                alert('Element not found!');
+            }
+
+            async binarySearch(target) {
+                let left = 0, right = this.array.length - 1;
+                
+                while (left <= right && this.isRunning) {
+                    const mid = Math.floor((left + right) / 2);
+                    
+                    this.bars[mid].classList.add('searching');
+                    this.comparisons++;
+                    this.updateStats();
+                    await this.delay();
+                    
+                    if (this.array[mid] === target) {
+                        this.bars[mid].classList.remove('searching');
+                        this.bars[mid].classList.add('found');
+                        anime({
+                            targets: this.bars[mid],
+                            scale: [1.3, 1],
+                            duration: 500,
+                            easing: 'easeOutElastic(1, .3)'
+                        });
+                        return;
+                    }
+                    
+                    this.bars[mid].classList.remove('searching');
+                    
+                    if (this.array[mid] < target) {
+                        left = mid + 1;
+                    } else {
+                        right = mid - 1;
+                    }
+                }
+                alert('Element not found!');
+            }
+
+            async jumpSearch(target) {
+                const n = this.array.length;
+                const step = Math.floor(Math.sqrt(n));
+                let prev = 0;
+                
+                while (this.array[Math.min(step, n) - 1] < target && this.isRunning) {
+                    this.bars[Math.min(step, n) - 1].classList.add('searching');
+                    this.comparisons++;
+                    this.updateStats();
+                    await this.delay();
+                    this.bars[Math.min(step, n) - 1].classList.remove('searching');
+                    
+                    prev = step;
+                    step += Math.floor(Math.sqrt(n));
+                    if (prev >= n) {
+                        alert('Element not found!');
+                        return;
+                    }
+                }
+                
+                while (this.array[prev] < target && this.isRunning) {
+                    this.bars[prev].classList.add('searching');
+                    this.comparisons++;
+                    this.updateStats();
+                    await this.delay();
+                    this.bars[prev].classList.remove('searching');
+                    
+                    prev++;
+                    if (prev === Math.min(step, n)) {
+                        alert('Element not found!');
+                        return;
+                    }
+                }
+                
+                if (this.array[prev] === target) {
+                    this.bars[prev].classList.add('found');
+                    anime({
+                        targets: this.bars[prev],
+                        scale: [1.3, 1],
+                        duration: 500,
+                        easing: 'easeOutElastic(1, .3)'
+                    });
+                } else {
+                    alert('Element not found!');
+                }
+            }
+
+            updateCode() {
+                const codes = {
+                    bubble: `function bubbleSort(arr) {
+  const n = arr.length;
+  
+  for (let i = 0; i < n - 1; i++) {
+    for (let j = 0; j < n - i - 1; j++) {
+      // Compare adjacent elements
+      if (arr[j] > arr[j + 1]) {
+        // Swap if they are in wrong order
+        [arr[j], arr[j+1]] = [arr[j+1], arr[j]];
+      }
+    }
+  }
+  return arr;
+}`,
+                    selection: `function selectionSort(arr) {
+  const n = arr.length;
+  
+  for (let i = 0; i < n - 1; i++) {
+    let minIdx = i;
+    
+    // Find minimum element
+    for (let j = i + 1; j < n; j++) {
+      if (arr[j] < arr[minIdx]) {
+        minIdx = j;
+      }
+    }
+    
+    // Swap with first unsorted element
+    [arr[i], arr[minIdx]] = [arr[minIdx], arr[i]];
+  }
+  return arr;
+}`,
+                    insertion: `function insertionSort(arr) {
+  const n = arr.length;
+  
+  for (let i = 1; i < n; i++) {
+    let key = arr[i];
+    let j = i - 1;
+    
+    // Move elements greater than key
+    while (j >= 0 && arr[j] > key) {
+      arr[j + 1] = arr[j];
+      j--;
+    }
+    
+    arr[j + 1] = key;
+  }
+  return arr;
+}`,
+                    merge: `function mergeSort(arr, l, r) {
+  if (l >= r) return;
+  
+  const m = Math.floor((l + r) / 2);
+  mergeSort(arr, l, m);
+  mergeSort(arr, m + 1, r);
+  merge(arr, l, m, r);
+}
+
+function merge(arr, l, m, r) {
+  const left = arr.slice(l, m + 1);
+  const right = arr.slice(m + 1, r + 1);
+  
+  let i = 0, j = 0, k = l;
+  
+  while (i < left.length && j < right.length) {
+    arr[k++] = left[i] <= right[j] 
+      ? left[i++] : right[j++];
+  }
+  
+  while (i < left.length) arr[k++] = left[i++];
+  while (j < right.length) arr[k++] = right[j++];
+}`,
+                    quick: `function quickSort(arr, low, high) {
+  if (low < high) {
+    const pi = partition(arr, low, high);
+    quickSort(arr, low, pi - 1);
+    quickSort(arr, pi + 1, high);
+  }
+}
+
+function partition(arr, low, high) {
+  const pivot = arr[high];
+  let i = low - 1;
+  
+  for (let j = low; j < high; j++) {
+    if (arr[j] < pivot) {
+      i++;
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+  }
+  
+  [arr[i+1], arr[high]] = [arr[high], arr[i+1]];
+  return i + 1;
+}`,
+                    heap: `function heapSort(arr) {
+  const n = arr.length;
+  
+  // Build max heap
+  for (let i = Math.floor(n/2) - 1; i >= 0; i--) {
+    heapify(arr, n, i);
+  }
+  
+  // Extract elements from heap
+  for (let i = n - 1; i > 0; i--) {
+    [arr[0], arr[i]] = [arr[i], arr[0]];
+    heapify(arr, i, 0);
+  }
+}
+
+function heapify(arr, n, i) {
+  let largest = i;
+  const left = 2 * i + 1;
+  const right = 2 * i + 2;
+  
+  if (left < n && arr[left] > arr[largest])
+    largest = left;
+  if (right < n && arr[right] > arr[largest])
+    largest = right;
+    
+  if (largest !== i) {
+    [arr[i], arr[largest]] = [arr[largest], arr[i]];
+    heapify(arr, n, largest);
+  }
+}`,
+                    linear: `function linearSearch(arr, target) {
+  for (let i = 0; i < arr.length; i++) {
+    // Check each element sequentially
+    if (arr[i] === target) {
+      return i; // Found at index i
+    }
+  }
+  return -1; // Not found
+}
+
+// Time Complexity: O(n)
+// Space Complexity: O(1)`,
+                    binary: `function binarySearch(arr, target) {
+  let left = 0;
+  let right = arr.length - 1;
+  
+  while (left <= right) {
+    const mid = Math.floor((left + right) / 2);
+    
+    if (arr[mid] === target) {
+      return mid; // Found!
+    }
+    
+    if (arr[mid] < target) {
+      left = mid + 1; // Search right half
+    } else {
+      right = mid - 1; // Search left half
+    }
+  }
+  
+  return -1; // Not found
+}
+
+// Time Complexity: O(log n)
+// Requires sorted array`,
+                    jump: `function jumpSearch(arr, target) {
+  const n = arr.length;
+  const step = Math.floor(Math.sqrt(n));
+  let prev = 0;
+  
+  // Jump ahead in blocks
+  while (arr[Math.min(step, n) - 1] < target) {
+    prev = step;
+    step += Math.floor(Math.sqrt(n));
+    if (prev >= n) return -1;
+  }
+  
+  // Linear search in block
+  while (arr[prev] < target) {
+    prev++;
+    if (prev === Math.min(step, n)) return -1;
+  }
+  
+  if (arr[prev] === target) return prev;
+  return -1;
+}
+
+// Time Complexity: O(√n)`
+                };
+
+                const info = {
+                    bubble: { name: 'Bubble Sort', time: 'O(n²)', space: 'O(1)', desc: 'Repeatedly swaps adjacent elements if they are in the wrong order.' },
+                    selection: { name: 'Selection Sort', time: 'O(n²)', space: 'O(1)', desc: 'Finds minimum element and places it at the beginning.' },
+                    insertion: { name: 'Insertion Sort', time: 'O(n²)', space: 'O(1)', desc: 'Builds sorted array one element at a time.' },
+                    merge: { name: 'Merge Sort', time: 'O(n log n)', space: 'O(n)', desc: 'Divides array into halves, sorts, and merges them.' },
+                    quick: { name: 'Quick Sort', time: 'O(n log n)', space: 'O(log n)', desc: 'Picks a pivot and partitions array around it.' },
+                    heap: { name: 'Heap Sort', time: 'O(n log n)', space: 'O(1)', desc: 'Uses a binary heap data structure to sort.' },
+                    linear: { name: 'Linear Search', time: 'O(n)', space: 'O(1)', desc: 'Sequentially checks each element until found.' },
+                    binary: { name: 'Binary Search', time: 'O(log n)', space: 'O(1)', desc: 'Divides search space in half each step. Requires sorted array.' },
+                    jump: { name: 'Jump Search', time: 'O(√n)', space: 'O(1)', desc: 'Jumps ahead by fixed steps, then linear search.' }
+                };
+
+                this.codeBlock.textContent = codes[this.currentAlgorithm];
+                Prism.highlightElement(this.codeBlock);
+
+                const currentInfo = info[this.currentAlgorithm];
+                document.getElementById('algorithmName').textContent = currentInfo.name;
+                document.getElementById('timeComplexity').textContent = currentInfo.time;
+                document.getElementById('spaceComplexity').textContent = currentInfo.space;
+                document.getElementById('algorithmDesc').textContent = currentInfo.desc;
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            new AlgorithmVisualizer();
+        });
+    </script>
+</body>
+</html>
